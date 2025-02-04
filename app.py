@@ -3,8 +3,12 @@ import requests
 from flask_pymongo import PyMongo
 from bson import ObjectId
 import os
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+CORS(app, origins=["https://67a29c43b0c20b64a5a4e0a5--celadon-haupia-bc0bcf.netlify.app/"])
+
 
 # MongoDB Configuration
 app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/video_conference")
