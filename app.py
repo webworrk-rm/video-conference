@@ -13,8 +13,16 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Allows all domains
 # CORS(app, origins=["https://*.netlify.app"])  
 
 # MongoDB Configuration
-app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/video_conference")
+mongo_uri = os.getenv("MONGO_URI")
+
+if not mongo_uri:
+    print("⚠️ MONGO_URI is missing! Using default local database.")
+    mongo_uri = "mongodb://localhost:27017/video_conference"
+
+print(f"✅ Connected to MongoDB URI: {mongo_uri}")  # ✅ Debug Log
+app.config["MONGO_URI"] = mongo_uri
 mongo = PyMongo(app)
+
 
 dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
 dailyco_base_url = "https://api.daily.co/v1/rooms"
