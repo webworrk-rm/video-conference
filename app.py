@@ -18,6 +18,10 @@ headers = {
     "Content-Type": "application/json"
 }
 
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "API is running!"}), 200
+
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
