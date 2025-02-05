@@ -45,8 +45,7 @@ def create_meeting():
                 "enable_network_ui": True,
                 "enable_screenshare": True,
                 "lang": "en",
-                "max_participants": 20,
-                "enable_recording": "cloud"
+                "max_participants": 20
             }
         })
         data = response.json()
