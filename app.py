@@ -77,18 +77,24 @@ def create_meeting():
 # ✅ Function to generate a **secure meeting token**
 def create_meeting_token(room_name, is_owner=False, knocking=False):
     try:
+        print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}, knocking: {knocking}")
+
         token_response = requests.post("https://api.daily.co/v1/meeting-tokens", headers=headers, json={
             "properties": {
                 "room_name": room_name,
-                "is_owner": is_owner,  # ✅ Host gets owner privileges
-                "enable_knocking": knocking  # 🔹 Enforce knocking for participants
+                "is_owner": is_owner,
+                "enable_knocking": knocking  # 🔹 Ensure knocking is enforced for participants
             }
         })
         token_data = token_response.json()
+
+        print(f"✅ Token API Response: {token_data}")
+
         return token_data.get("token")
     except Exception as e:
         print(f"❌ Token Generation Failed: {e}")
         return None
+
 
 # ✅ API for participant to request to join a meeting
 @app.route("/api/request-join", methods=["POST"])
