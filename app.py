@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Corrected CORS setup (Allow all origins or restrict as needed)
+# ✅ Allow CORS for all origins (Modify if needed)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ✅ Daily.co API Configuration
@@ -30,10 +30,9 @@ def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        # Create a meeting with **private** access and knocking feature enabled
+        # Create a meeting with **private** access
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",
-            "exp": 3600,  # Meeting valid for 1 hour
             "properties": {
                 "enable_knocking": True  # Forces participants to wait for approval
             }
