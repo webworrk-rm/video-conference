@@ -1,28 +1,3 @@
-from flask import Flask, request, jsonify
-import requests
-from flask_cors import CORS
-import os
-import time
-
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")  # Replace with your actual API key
-dailyco_base_url = "https://api.daily.co/v1/rooms"
-token_api_url = "https://api.daily.co/v1/meeting-tokens"
-
-headers = {
-    "Authorization": f"Bearer {dailyco_api_key}",
-    "Content-Type": "application/json"
-}
-
-waiting_list = {}
-
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "API is running!"}), 200
-
-@app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
         future_timestamp = int(time.time()) + 3600
@@ -45,16 +20,17 @@ def create_meeting():
             meeting_url = data["url"]
             room_name = data["name"]
 
-            # Correctly generate tokens:
-            host_token = generate_token(room_name, is_owner=True)  # Host token
-            participant_token = generate_token(room_name, is_owner=False) # Participant token
+            host_token = generate_token(room_name, is_owner=True)
+            participant_token = generate_token(room_name, is_owner=False)
 
             if host_token and participant_token:
-                # Correctly construct URLs using the generated tokens:
-                host_url = f"{meeting_url}?t={host_token}"  # Host URL with owner token
-                participant_url = f"{meeting_url}?t={participant_token}"  # Participant URL
+                host_url = f"{meeting_url}?t={host_token}"
+                participant_url = f"{meeting_url}?t={participant_token}"
 
                 waiting_list[room_name] = []
+
+                print(f"Host URL: {host_url}")  # Print the host URL
+                print(f"Participant URL: {participant_url}")  # Print the participant URL
 
                 return jsonify({
                     "host_url": host_url,
