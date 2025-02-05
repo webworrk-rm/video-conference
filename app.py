@@ -2,11 +2,11 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 import os
-import time  # ✅ Import time module for correct timestamp generation
+import time  # ✅ Import time for timestamp management
 
 app = Flask(__name__)
 
-# ✅ CORS Setup (Restrict if necessary)
+# ✅ CORS Setup (Allow if necessary)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ✅ Daily.co API Configuration
@@ -22,20 +22,21 @@ headers = {
 def home():
     return jsonify({"message": "API is running!"}), 200
 
-# ✅ API to create a private meeting with host approval
+# ✅ API to create a **PRIVATE** meeting with host control
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        # Get current UNIX timestamp and add 1 hour for meeting expiration
-        future_timestamp = int(time.time()) + 3600  # Current time + 1 hour
+        # Get a future timestamp for meeting expiration (1 hour from now)
+        future_timestamp = int(time.time()) + 3600
 
-        # Create a private meeting
+        # ✅ Create a **private** meeting with knocking (approval required)
         response = requests.post(dailyco_base_url, headers=headers, json={
-            "privacy": "private",
+            "privacy": "private",  # ✅ Private Meeting
             "properties": {
-                "exp": future_timestamp,  # ✅ Corrected expiration timestamp
+                "exp": future_timestamp,
+                "enable_knocking": True,  # ✅ Participants must wait for approval
                 "start_audio_off": True,
                 "start_video_off": True,
                 "enable_chat": True
@@ -48,7 +49,7 @@ def create_meeting():
         if "url" in data:
             meeting_url = data["url"]
             
-            # Create host and participant tokens
+            # ✅ Generate host and participant tokens
             host_token = create_meeting_token(meeting_url, is_owner=True, exp=future_timestamp)
             participant_token = create_meeting_token(meeting_url, is_owner=False, exp=future_timestamp)
 
@@ -71,14 +72,14 @@ def create_meeting():
         print("❌ Create Meeting Error:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# ✅ Function to generate expiring meeting tokens for host & participants
+# ✅ Function to generate a **secure meeting token**
 def create_meeting_token(meeting_url, is_owner=False, exp=None):
     try:
         token_response = requests.post(f"https://api.daily.co/v1/meeting-tokens", headers=headers, json={
             "properties": {
                 "room_name": meeting_url.split("/")[-1],
-                "is_owner": is_owner,  # ✅ Host has full control, participants have restricted access
-                "exp": exp  # ✅ Ensure the token expires in the future
+                "is_owner": is_owner,  # ✅ Only the host is the owner
+                "exp": exp  # ✅ Ensure the token expires properly
             }
         })
         token_data = token_response.json()
