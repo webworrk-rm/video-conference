@@ -7,7 +7,7 @@ import time
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# ✅ Daily.co API Configuration
+# Daily.co API Configuration
 dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
 dailyco_base_url = "https://api.daily.co/v1/rooms"
 token_api_url = "https://api.daily.co/v1/meeting-tokens"
@@ -23,7 +23,6 @@ waiting_list = {}  # Store join requests
 def home():
     return jsonify({"message": "API is running!"}), 200
 
-# ✅ API to create a meeting with controlled access
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
@@ -32,15 +31,15 @@ def create_meeting():
         # Set meeting expiration (1 hour)
         future_timestamp = int(time.time()) + 3600
 
-        # ✅ Create **private** meeting where all participants require approval
+        # Create room with correct privacy settings
         response = requests.post(dailyco_base_url, headers=headers, json={
-            "privacy": "private",
             "properties": {
-                "enable_knocking": True,  # ✅ Forces waiting room
+                "enable_knocking": True,  # Enable waiting room
                 "exp": future_timestamp,
                 "start_audio_off": True,
                 "start_video_off": True,
-                "enable_chat": True
+                "enable_chat": True,
+                "owner_only_broadcast": False  # Ensure all participants can interact
             }
         })
         data = response.json()
@@ -50,9 +49,9 @@ def create_meeting():
             meeting_url = data["url"]
             room_name = data["name"]
 
-            # ✅ Generate host and participant tokens with proper permissions
+            # Generate tokens with correct permissions
             host_token = generate_token(room_name, is_owner=True)
-            participant_token = generate_token(room_name, is_owner=False)  # ✅ Enforce knocking via room settings
+            participant_token = generate_token(room_name, is_owner=False)
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -72,17 +71,32 @@ def create_meeting():
         print("❌ Create Meeting Error:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# ✅ Function to generate a **secure meeting token**
 def generate_token(room_name, is_owner=False):
     try:
         print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}")
+        
+        token_properties = {
+            "room_name": room_name,
+            "is_owner": is_owner,
+            "exp": int(time.time()) + 3600  # Token expires in 1 hour
+        }
+
+        # Add specific permissions based on role
+        if is_owner:
+            token_properties.update({
+                "enable_knocking": True,  # Allow host to see knock requests
+                "start_video_off": False,  # Host can start with video
+                "start_audio_off": False,  # Host can start with audio
+            })
+        else:
+            token_properties.update({
+                "enable_knocking": True,  # Participants must knock
+                "start_video_off": True,  # Participants start with video off
+                "start_audio_off": True,  # Participants start with audio off
+            })
 
         response = requests.post(token_api_url, headers=headers, json={
-            "properties": {
-                "room_name": room_name,
-                "is_owner": is_owner,
-                "exp": int(time.time()) + 3600  # ✅ Token expires in 1 hour
-            }
+            "properties": token_properties
         })
         token_data = response.json()
         print("✅ Token API Response:", token_data)
