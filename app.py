@@ -17,32 +17,8 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# In-memory waiting list
+# ✅ In-memory waiting list (stores pending join requests)
 waiting_list = {}
-
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "API is running!"}), 200
-
-from flask import Flask, request, jsonify
-import requests
-from flask_cors import CORS
-import os
-import time  # ✅ Import time for timestamp management
-
-app = Flask(__name__)
-
-# ✅ CORS Setup (Allow if necessary)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-# ✅ Daily.co API Configuration
-dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
-dailyco_base_url = "https://api.daily.co/v1/rooms"
-
-headers = {
-    "Authorization": f"Bearer {dailyco_api_key}",
-    "Content-Type": "application/json"
-}
 
 @app.route("/", methods=["GET"])
 def home():
@@ -54,14 +30,10 @@ def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        # Get a future timestamp for meeting expiration (1 hour from now)
-        future_timestamp = int(time.time()) + 3600
-
-        # ✅ Create a **private** meeting with knocking (approval required)
+        # ✅ Create a **private** meeting with knocking enabled
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",  # ✅ Private Meeting
             "properties": {
-                "exp": future_timestamp,
                 "enable_knocking": True,  # ✅ Participants must wait for approval
                 "start_audio_off": True,
                 "start_video_off": True,
@@ -74,10 +46,14 @@ def create_meeting():
 
         if "url" in data:
             meeting_url = data["url"]
-            
+            room_name = meeting_url.split("/")[-1]  # Extract room name
+
+            # ✅ Store the waiting list for this room
+            waiting_list[room_name] = []
+
             # ✅ Generate host and participant tokens
-            host_token = create_meeting_token(meeting_url, is_owner=True, exp=future_timestamp)
-            participant_token = create_meeting_token(meeting_url, is_owner=False, exp=future_timestamp)
+            host_token = create_meeting_token(room_name, is_owner=True)
+            participant_token = create_meeting_token(room_name, is_owner=False, knocking=True)  # Enforce knocking
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -99,13 +75,13 @@ def create_meeting():
         return jsonify({"error": str(e)}), 500
 
 # ✅ Function to generate a **secure meeting token**
-def create_meeting_token(meeting_url, is_owner=False, exp=None):
+def create_meeting_token(room_name, is_owner=False, knocking=False):
     try:
-        token_response = requests.post(f"https://api.daily.co/v1/meeting-tokens", headers=headers, json={
+        token_response = requests.post("https://api.daily.co/v1/meeting-tokens", headers=headers, json={
             "properties": {
-                "room_name": meeting_url.split("/")[-1],
-                "is_owner": is_owner,  # ✅ Only the host is the owner
-                "exp": exp  # ✅ Ensure the token expires properly
+                "room_name": room_name,
+                "is_owner": is_owner,  # ✅ Host gets owner privileges
+                "enable_knocking": knocking  # ✅ Enforce knocking for participants
             }
         })
         token_data = token_response.json()
@@ -114,11 +90,7 @@ def create_meeting_token(meeting_url, is_owner=False, exp=None):
         print(f"❌ Token Generation Failed: {e}")
         return None
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-# ✅ API to request to join a meeting (Participant requests admission)
+# ✅ API for participant to request to join a meeting
 @app.route("/api/request-join", methods=["POST"])
 def request_join():
     try:
