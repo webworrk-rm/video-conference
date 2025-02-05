@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ✅ MongoDB Configuration (Using Render Environment Variables)
-app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/video_conference")
+app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb+srv://webworrkteam:<db_password>@cluster0.yr247.mongodb.net/video_conference?retryWrites=true&w=majority")
 mongo = PyMongo(app)
 
 # ✅ Define Database and Collection in Code
