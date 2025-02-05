@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 import os
+import time  # ✅ Import time module for correct timestamp generation
 
 app = Flask(__name__)
 
@@ -27,11 +28,14 @@ def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
+        # Get current UNIX timestamp and add 1 hour for meeting expiration
+        future_timestamp = int(time.time()) + 3600  # Current time + 1 hour
+
         # Create a private meeting
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",
             "properties": {
-                "exp": 3600,  # Meeting expires in 1 hour
+                "exp": future_timestamp,  # ✅ Corrected expiration timestamp
                 "start_audio_off": True,
                 "start_video_off": True,
                 "enable_chat": True
@@ -45,8 +49,8 @@ def create_meeting():
             meeting_url = data["url"]
             
             # Create host and participant tokens
-            host_token = create_meeting_token(meeting_url, is_owner=True)
-            participant_token = create_meeting_token(meeting_url, is_owner=False)
+            host_token = create_meeting_token(meeting_url, is_owner=True, exp=future_timestamp)
+            participant_token = create_meeting_token(meeting_url, is_owner=False, exp=future_timestamp)
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -68,12 +72,13 @@ def create_meeting():
         return jsonify({"error": str(e)}), 500
 
 # ✅ Function to generate expiring meeting tokens for host & participants
-def create_meeting_token(meeting_url, is_owner=False):
+def create_meeting_token(meeting_url, is_owner=False, exp=None):
     try:
         token_response = requests.post(f"https://api.daily.co/v1/meeting-tokens", headers=headers, json={
             "properties": {
                 "room_name": meeting_url.split("/")[-1],
-                "is_owner": is_owner  # True for host, False for participants
+                "is_owner": is_owner,  # ✅ Host has full control, participants have restricted access
+                "exp": exp  # ✅ Ensure the token expires in the future
             }
         })
         token_data = token_response.json()
