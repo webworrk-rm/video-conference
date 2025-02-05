@@ -4,3 +4,4 @@ flask_pymongo
 gunicorn
 python-dotenv
 flask_cors
+websockets==10.4
