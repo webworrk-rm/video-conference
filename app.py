@@ -26,15 +26,16 @@ def home():
 
 # ✅ API to create a **PRIVATE** meeting with host control
 @app.route("/api/create-meeting", methods=["POST"])
+@app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
         # ✅ Create a **private** meeting with knocking enabled
         response = requests.post(dailyco_base_url, headers=headers, json={
-            "privacy": "private",  # ✅ Private Meeting
+            "privacy": "private",
             "properties": {
-                "enable_knocking": True,  # ✅ Participants must wait for approval
+                "enable_knocking": True,  # ✅ Knocking is enabled at room level
                 "start_audio_off": True,
                 "start_video_off": True,
                 "enable_chat": True
@@ -51,9 +52,9 @@ def create_meeting():
             # ✅ Store the waiting list for this room
             waiting_list[room_name] = []
 
-            # ✅ Generate host and participant tokens
+            # ✅ Generate host and participant tokens (Removed `knocking` argument)
             host_token = create_meeting_token(room_name, is_owner=True)
-            participant_token = create_meeting_token(room_name, is_owner=False, knocking=True)  # 🔹 Enforce knocking
+            participant_token = create_meeting_token(room_name, is_owner=False)
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
