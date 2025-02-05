@@ -3,11 +3,16 @@ import requests
 from flask_cors import CORS
 import os
 import time
+import json  # For working with JSON data in app_data
+
+# For WebSockets (you'll need to install: pip install websockets)
+import asyncio
+import websockets
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")  # Replace with your actual API key
+dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
 dailyco_base_url = "https://api.daily.co/v1/rooms"
 token_api_url = "https://api.daily.co/v1/meeting-tokens"
 
@@ -16,45 +21,136 @@ headers = {
     "Content-Type": "application/json"
 }
 
-waiting_list = {}
+waiting_list = {}  # Store participant join requests (now with more info)
+
+# WebSocket setup
+connected_clients = {}  # Store connected WebSocket clients
+
+async def handle_websocket(websocket, path):
+    connected_clients[path] = websocket  # Store the client
+    try:
+        while True:  # Keep the connection open
+            message = await websocket.recv() # Expecting message from Client
+            # Handle messages from the client if needed
+            # For example, client can send a message to server.
+            print(f"Received message from client: {message}")
+            # You can process messages from clients here if you want to add more features.
+            # For example, you could have a chat feature or other interactive elements.
+    except websockets.exceptions.ConnectionClosedError:
+        pass # Handle client disconnect
+    finally:
+        del connected_clients[path]  # Remove the client when disconnected
+
+
+async def start_websocket_server():
+    async with websockets.serve(handle_websocket, "0.0.0.0", 8765): # running on port 8765
+        await asyncio.Future()  # Run forever
+
+# Start the WebSocket server in a separate thread
+import threading
+def start_server_thread():
+    asyncio.run(start_websocket_server())
+
+websocket_thread = threading.Thread(target=start_server_thread)
+websocket_thread.daemon = True  # Allow the main thread to exit
+websocket_thread.start()
+
 
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "API is running!"}), 200
 
 @app.route("/api/create-meeting", methods=["POST"])
+def create_meeting():
+    try:
+        future_timestamp = int(time.time()) + 3600
+
+        response = requests.post(dailyco_base_url, headers=headers, json={
+            "privacy": "private",
+            "properties": {
+                "enable_knocking": True, # Keep knocking enabled for an extra layer of security.
+                "exp": future_timestamp,
+                "start_audio_off": True,
+                "start_video_off": True,
+                "enable_chat": True,
+                "enable_network_ui": True,
+                "max_participants": 20
+            }
+        })
+        data = response.json()
+
+        if "url" in data:
+            meeting_url = data["url"]
+            room_name = data["name"]
+
+            host_token = generate_token(room_name, is_owner=True)
+            host_url = f"{meeting_url}?t={host_token}"
+
+            print(f"Host URL: {host_url}")
+
+            return jsonify({
+                "host_url": host_url,
+                "room_name": room_name
+            }), 201
+        else:
+            return jsonify({"error": "Failed to create meeting", "details": data}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-# ✅ API for Participants to Request to Join (Sent to Host)
-@app.route("/api/request-join", methods=["POST"])
-def request_join():
+def generate_token(room_name, is_owner=False, user_name=None):
+    try:
+        properties = {
+            "room_name": room_name,
+            "is_owner": is_owner,
+            "exp": int(time.time()) + 3600
+        }
+        if user_name:
+            properties["app_data"] = json.dumps({"user_name": user_name})  # Stringify JSON
+
+        response = requests.post(token_api_url, headers=headers, json={"properties": properties})
+        token_data = response.json()
+        return token_data.get("token")
+    except Exception as e:
+        return None
+
+
+@app.route("/api/participant-token", methods=["POST"])
+def get_participant_token():
     try:
         data = request.json
         room_name = data.get("room_name")
         user_name = data.get("user_name")
 
-        if room_name not in waiting_list:
-            return jsonify({"error": "Room not found"}), 404
+        participant_token = generate_token(room_name, is_owner=False, user_name=user_name)
 
-        waiting_list[room_name].append({"user_name": user_name})
-        print(f"🔔 Join request received: {user_name} for {room_name}")
+        if participant_token:
+            waiting_list[room_name] = waiting_list.get(room_name, [])
+            waiting_list[room_name].append({"user_name": user_name, "approved": False})
 
-        return jsonify({"message": "Request sent to host", "room_name": room_name}), 200
+            # Notify connected host clients for this room.
+            for path, client in connected_clients.items():
+                if path.startswith(f"/{room_name}"): # Check if client is for the same room
+                    try:
+                        asyncio.run(client.send(json.dumps({"type": "join_request", "user_name": user_name, "room_name": room_name}))) # Send JSON message
+                    except Exception as e:
+                        print(f"Error sending message to client: {e}")
+
+            return jsonify({"token": participant_token}), 200
+        else:
+            return jsonify({"error": "Failed to generate token"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ API for Host to View Waiting List
+
 @app.route("/api/waiting-list/<room_name>", methods=["GET"])
 def get_waiting_list(room_name):
     try:
-        if room_name not in waiting_list:
-            return jsonify({"error": "Room not found"}), 404
-
-        return jsonify({"waiting_list": waiting_list[room_name]}), 200
+       return jsonify({"waiting_list": waiting_list.get(room_name, [])}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ API for Host to Admit a Participant
+
 @app.route("/api/admit-participant", methods=["POST"])
 def admit_participant():
     try:
@@ -65,12 +161,23 @@ def admit_participant():
         if room_name not in waiting_list:
             return jsonify({"error": "Room not found"}), 404
 
-        waiting_list[room_name] = [p for p in waiting_list[room_name] if p["user_name"] != user_name]
+        # Update waiting list and notify clients
+        for i, participant in enumerate(waiting_list[room_name]):
+            if participant["user_name"] == user_name:
+                waiting_list[room_name][i]["approved"] = True
+                # Notify all clients (including the admitted participant)
+                for path, client in connected_clients.items():
+                    if path.startswith(f"/{room_name}"):
+                         try:
+                             asyncio.run(client.send(json.dumps({"type": "user_admitted", "user_name": user_name, "room_name": room_name})))
+                         except Exception as e:
+                            print(f"Error sending message to client: {e}")
+                break # Exit after finding and updating user
 
-        print(f"✅ {user_name} admitted to {room_name}")
         return jsonify({"message": "User admitted", "user_name": user_name}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
