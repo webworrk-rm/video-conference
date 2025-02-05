@@ -51,8 +51,8 @@ def create_meeting():
             room_name = data["name"]
 
             # ✅ Generate host and participant tokens with proper permissions
-            host_token = generate_token(room_name, is_owner=True, knocking=False)
-            participant_token = generate_token(room_name, is_owner=False, knocking=True)  # ✅ Enforce knocking
+            host_token = generate_token(room_name, is_owner=True)
+            participant_token = generate_token(room_name, is_owner=False)  # ✅ Enforce knocking via room settings
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -73,16 +73,15 @@ def create_meeting():
         return jsonify({"error": str(e)}), 500
 
 # ✅ Function to generate a **secure meeting token**
-def generate_token(room_name, is_owner=False, knocking=True):
+def generate_token(room_name, is_owner=False):
     try:
-        print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}, knocking: {knocking}")
+        print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}")
 
         response = requests.post(token_api_url, headers=headers, json={
             "properties": {
                 "room_name": room_name,
                 "is_owner": is_owner,
-                "exp": int(time.time()) + 3600,  # ✅ Token expires in 1 hour
-                "knocking": knocking  # ✅ Enforce waiting room for participants
+                "exp": int(time.time()) + 3600  # ✅ Token expires in 1 hour
             }
         })
         token_data = response.json()
