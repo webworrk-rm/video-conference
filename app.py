@@ -31,18 +31,22 @@ def create_meeting():
         # Set meeting expiration (1 hour)
         future_timestamp = int(time.time()) + 3600
 
-        # Create private room with waiting room enabled
+        # Create private room with strict access control
         response = requests.post(dailyco_base_url, headers=headers, json={
-            "privacy": "private",  # Make room private
+            "privacy": "private",
             "properties": {
-                "enable_knocking": True,  # Enable waiting room
+                "enable_knocking": True,
                 "exp": future_timestamp,
                 "start_audio_off": True,
                 "start_video_off": True,
                 "enable_chat": True,
-                "enable_prejoin_ui": True,  # Show prejoin UI
-                "owner_only_broadcast": False,  # Ensure all participants can interact
-                "max_participants": 20  # Set max participants
+                "enable_prejoin_ui": True,
+                "owner_only_broadcast": False,
+                "enable_network_ui": True,
+                "enable_screenshare": True,
+                "lang": "en",
+                "max_participants": 20,
+                "enable_recording": "cloud"
             }
         })
         data = response.json()
@@ -78,18 +82,16 @@ def generate_token(room_name, is_owner=False):
     try:
         print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}")
         
-        # Set permissions based on role
+        # Set basic token properties
         token_properties = {
             "room_name": room_name,
             "is_owner": is_owner,
             "exp": int(time.time()) + 3600,  # Token expires in 1 hour
-            "eject_at_token_exp": True,  # Eject user when token expires
-            "eject_after_elapsed": 3600  # Eject after 1 hour
+            "eject_at_token_exp": True,
+            "eject_after_elapsed": 3600,
+            "user_name": "Host" if is_owner else "Participant",
+            "enable_screenshare": is_owner  # Only hosts can share screen
         }
-
-        if not is_owner:
-            token_properties["user_name"] = "Participant"  # Set default name for participants
-            token_properties["waiting_room"] = True  # Force waiting room for participants
 
         response = requests.post(token_api_url, headers=headers, json={
             "properties": token_properties
