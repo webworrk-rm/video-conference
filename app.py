@@ -7,7 +7,7 @@ import time
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Daily.co API Configuration
+# ✅ Daily.co API Configuration
 dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
 dailyco_base_url = "https://api.daily.co/v1/rooms"
 token_api_url = "https://api.daily.co/v1/meeting-tokens"
@@ -17,34 +17,31 @@ headers = {
     "Content-Type": "application/json"
 }
 
-waiting_list = {}  # Store join requests
+waiting_list = {}  # Store participant join requests
 
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "API is running!"}), 200
 
+# ✅ API to Create a Meeting with Controlled Access
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        # Set meeting expiration (1 hour)
+        # Set meeting expiration (1 hour from now)
         future_timestamp = int(time.time()) + 3600
 
-        # Create private room with strict access control
+        # ✅ Create a Private Meeting with Knocking (Host Approval Required)
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",
             "properties": {
-                "enable_knocking": True,
+                "enable_knocking": True,  # ✅ Participants must request to join
                 "exp": future_timestamp,
                 "start_audio_off": True,
                 "start_video_off": True,
                 "enable_chat": True,
-                "enable_prejoin_ui": True,
-                "owner_only_broadcast": False,
                 "enable_network_ui": True,
-                "enable_screenshare": True,
-                "lang": "en",
                 "max_participants": 20
             }
         })
@@ -55,14 +52,14 @@ def create_meeting():
             meeting_url = data["url"]
             room_name = data["name"]
 
-            # Generate tokens with correct permissions
+            # ✅ Generate Host & Participant Tokens
             host_token = generate_token(room_name, is_owner=True)
             participant_token = generate_token(room_name, is_owner=False)
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
                 participant_url = f"{meeting_url}?t={participant_token}"
-                waiting_list[room_name] = []  # Initialize waiting list for the meeting
+                waiting_list[room_name] = []  # Initialize waiting list
 
                 print(f"✅ Meeting created: Host URL = {host_url}, Participant URL = {participant_url}")
                 return jsonify({
@@ -77,23 +74,17 @@ def create_meeting():
         print("❌ Create Meeting Error:", str(e))
         return jsonify({"error": str(e)}), 500
 
+# ✅ Function to Generate Secure Meeting Tokens
 def generate_token(room_name, is_owner=False):
     try:
         print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}")
-        
-        # Set basic token properties
-        token_properties = {
-            "room_name": room_name,
-            "is_owner": is_owner,
-            "exp": int(time.time()) + 3600,  # Token expires in 1 hour
-            "eject_at_token_exp": True,
-            "eject_after_elapsed": 3600,
-            "user_name": "Host" if is_owner else "Participant",
-            "enable_screenshare": is_owner  # Only hosts can share screen
-        }
 
         response = requests.post(token_api_url, headers=headers, json={
-            "properties": token_properties
+            "properties": {
+                "room_name": room_name,
+                "is_owner": is_owner,  # ✅ Hosts have control; participants require approval
+                "exp": int(time.time()) + 3600  # ✅ Token expires in 1 hour
+            }
         })
         token_data = response.json()
         print("✅ Token API Response:", token_data)
@@ -102,7 +93,7 @@ def generate_token(room_name, is_owner=False):
         print(f"❌ Token Generation Failed: {e}")
         return None
 
-# ✅ API to request to join a meeting (Participant requests approval)
+# ✅ API for Participants to Request to Join (Sent to Host)
 @app.route("/api/request-join", methods=["POST"])
 def request_join():
     try:
@@ -120,7 +111,7 @@ def request_join():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ API for host to get the waiting list
+# ✅ API for Host to View Waiting List
 @app.route("/api/waiting-list/<room_name>", methods=["GET"])
 def get_waiting_list(room_name):
     try:
@@ -131,7 +122,7 @@ def get_waiting_list(room_name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ API for host to admit a participant
+# ✅ API for Host to Admit a Participant
 @app.route("/api/admit-participant", methods=["POST"])
 def admit_participant():
     try:
