@@ -21,13 +21,17 @@ headers = {
 def home():
     return jsonify({"message": "API is running!"}), 200
 
-# ✅ API to create a meeting (Host URL & Participant URL)
+# ✅ API to create a meeting (Private with host controls)
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        response = requests.post(dailyco_base_url, headers=headers, json={"privacy": "public"})
+        # Create a meeting with **private** access and knock feature enabled
+        response = requests.post(dailyco_base_url, headers=headers, json={
+            "privacy": "private",
+            "enable_knocking": True  # Forces participants to wait for approval
+        })
         data = response.json()
 
         print("✅ Daily.co Response:", data)
@@ -37,8 +41,8 @@ def create_meeting():
             participant_url = f"{data['url']}?t=participant"
             print(f"✅ Meeting created: Host URL = {host_url}, Participant URL = {participant_url}")
             return jsonify({
-                "url": participant_url,  # Ensures compatibility with frontend
-                "host_url": host_url
+                "url": participant_url,  # Participants get this link
+                "host_url": host_url      # Host gets this link
             }), 201
         else:
             print("❌ ERROR: Daily.co API failed", data)
