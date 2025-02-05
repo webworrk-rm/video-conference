@@ -28,7 +28,7 @@ def create_meeting():
     try:
         print("✅ Received request to create a meeting")
 
-        response = requests.post(dailyco_base_url, headers=headers, json={"privacy": "private"})
+        response = requests.post(dailyco_base_url, headers=headers, json={"privacy": "public"})
         data = response.json()
 
         print("✅ Daily.co Response:", data)
