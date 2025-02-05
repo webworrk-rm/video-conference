@@ -63,25 +63,34 @@ def home():
 @app.route("/api/create-meeting", methods=["POST"])
 def create_meeting():
     try:
-        # ... (room creation code)
+        future_timestamp = int(time.time()) + 3600
+
+        response = requests.post(dailyco_base_url, headers=headers, json={
+            "privacy": "private",
+            "properties": {
+                "enable_knocking": True, # Keep knocking enabled for an extra layer of security.
+                "exp": future_timestamp,
+                "start_audio_off": True,
+                "start_video_off": True,
+                "enable_chat": True,
+                "enable_network_ui": True,
+                "max_participants": 20
+            }
+        })
+        data = response.json()
 
         if "url" in data:
             meeting_url = data["url"]
             room_name = data["name"]
 
             host_token = generate_token(room_name, is_owner=True)
-            participant_token = generate_token(room_name, is_owner=False)  # Generate participant token
-
             host_url = f"{meeting_url}?t={host_token}"
-            participant_url = f"{meeting_url}?t={participant_token}" # Construct participant URL
 
             print(f"Host URL: {host_url}")
-            print(f"Participant URL: {participant_url}") # Print participant URL
 
             return jsonify({
                 "host_url": host_url,
-                "room_name": room_name,
-                "participant_url": participant_url  # Include participant URL in the response
+                "room_name": room_name
             }), 201
         else:
             return jsonify({"error": "Failed to create meeting", "details": data}), 500
