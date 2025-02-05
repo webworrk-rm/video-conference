@@ -31,16 +31,11 @@ async def handle_websocket(websocket, path):
     try:
         while True:  # Keep the connection open
             message = await websocket.recv() # Expecting message from Client
-            # Handle messages from the client if needed
-            # For example, client can send a message to server.
             print(f"Received message from client: {message}")
-            # You can process messages from clients here if you want to add more features.
-            # For example, you could have a chat feature or other interactive elements.
     except websockets.exceptions.ConnectionClosedError:
         pass # Handle client disconnect
     finally:
         del connected_clients[path]  # Remove the client when disconnected
-
 
 async def start_websocket_server():
     async with websockets.serve(handle_websocket, "0.0.0.0", 8765): # running on port 8765
@@ -55,7 +50,6 @@ websocket_thread = threading.Thread(target=start_server_thread)
 websocket_thread.daemon = True  # Allow the main thread to exit
 websocket_thread.start()
 
-
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "API is running!"}), 200
@@ -68,7 +62,7 @@ def create_meeting():
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",
             "properties": {
-                "enable_knocking": True, # Keep knocking enabled for an extra layer of security.
+                "enable_knocking": True,
                 "exp": future_timestamp,
                 "start_audio_off": True,
                 "start_video_off": True,
@@ -84,19 +78,22 @@ def create_meeting():
             room_name = data["name"]
 
             host_token = generate_token(room_name, is_owner=True)
+            participant_token = generate_token(room_name, is_owner=False)
             host_url = f"{meeting_url}?t={host_token}"
+            participant_url = f"{meeting_url}?t={participant_token}"
 
             print(f"Host URL: {host_url}")
+            print(f"Participant URL: {participant_url}")
 
             return jsonify({
                 "host_url": host_url,
+                "participant_url": participant_url,
                 "room_name": room_name
             }), 201
         else:
             return jsonify({"error": "Failed to create meeting", "details": data}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 def generate_token(room_name, is_owner=False, user_name=None):
     try:
@@ -114,7 +111,6 @@ def generate_token(room_name, is_owner=False, user_name=None):
     except Exception as e:
         return None
 
-
 @app.route("/api/participant-token", methods=["POST"])
 def get_participant_token():
     try:
@@ -128,11 +124,10 @@ def get_participant_token():
             waiting_list[room_name] = waiting_list.get(room_name, [])
             waiting_list[room_name].append({"user_name": user_name, "approved": False})
 
-            # Notify connected host clients for this room.
             for path, client in connected_clients.items():
-                if path.startswith(f"/{room_name}"): # Check if client is for the same room
+                if path.startswith(f"/{room_name}"):
                     try:
-                        asyncio.run(client.send(json.dumps({"type": "join_request", "user_name": user_name, "room_name": room_name}))) # Send JSON message
+                        asyncio.run(client.send(json.dumps({"type": "join_request", "user_name": user_name, "room_name": room_name})))
                     except Exception as e:
                         print(f"Error sending message to client: {e}")
 
@@ -142,14 +137,12 @@ def get_participant_token():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/waiting-list/<room_name>", methods=["GET"])
 def get_waiting_list(room_name):
     try:
        return jsonify({"waiting_list": waiting_list.get(room_name, [])}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/api/admit-participant", methods=["POST"])
 def admit_participant():
@@ -161,23 +154,20 @@ def admit_participant():
         if room_name not in waiting_list:
             return jsonify({"error": "Room not found"}), 404
 
-        # Update waiting list and notify clients
         for i, participant in enumerate(waiting_list[room_name]):
             if participant["user_name"] == user_name:
                 waiting_list[room_name][i]["approved"] = True
-                # Notify all clients (including the admitted participant)
                 for path, client in connected_clients.items():
                     if path.startswith(f"/{room_name}"):
                          try:
                              asyncio.run(client.send(json.dumps({"type": "user_admitted", "user_name": user_name, "room_name": room_name})))
                          except Exception as e:
                             print(f"Error sending message to client: {e}")
-                break # Exit after finding and updating user
+                break
 
         return jsonify({"message": "User admitted", "user_name": user_name}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
