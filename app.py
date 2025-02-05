@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Allow CORS for all origins (Modify if needed)
+# ✅ Allow CORS for all origins
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ✅ Daily.co API Configuration
@@ -53,7 +53,7 @@ def create_meeting():
 
             # ✅ Generate host and participant tokens
             host_token = create_meeting_token(room_name, is_owner=True)
-            participant_token = create_meeting_token(room_name, is_owner=False, knocking=True)  # Enforce knocking
+            participant_token = create_meeting_token(room_name, is_owner=False, knocking=True)  # 🔹 Enforce knocking
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -81,7 +81,7 @@ def create_meeting_token(room_name, is_owner=False, knocking=False):
             "properties": {
                 "room_name": room_name,
                 "is_owner": is_owner,  # ✅ Host gets owner privileges
-                "enable_knocking": knocking  # ✅ Enforce knocking for participants
+                "enable_knocking": knocking  # 🔹 Enforce knocking for participants
             }
         })
         token_data = token_response.json()
