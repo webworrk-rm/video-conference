@@ -1,62 +1,29 @@
-def create_meeting():
-    try:
-        future_timestamp = int(time.time()) + 3600
+from flask import Flask, request, jsonify
+import requests
+from flask_cors import CORS
+import os
+import time
 
-        response = requests.post(dailyco_base_url, headers=headers, json={
-            "privacy": "private",
-            "properties": {
-                "enable_knocking": True,
-                "exp": future_timestamp,
-                "start_audio_off": True,
-                "start_video_off": True,
-                "enable_chat": True,
-                "enable_network_ui": True,
-                "max_participants": 20
-            }
-        })
-        data = response.json()
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-        if "url" in data:
-            meeting_url = data["url"]
-            room_name = data["name"]
+dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")  # Replace with your actual API key
+dailyco_base_url = "https://api.daily.co/v1/rooms"
+token_api_url = "https://api.daily.co/v1/meeting-tokens"
 
-            host_token = generate_token(room_name, is_owner=True)
-            participant_token = generate_token(room_name, is_owner=False)
+headers = {
+    "Authorization": f"Bearer {dailyco_api_key}",
+    "Content-Type": "application/json"
+}
 
-            if host_token and participant_token:
-                host_url = f"{meeting_url}?t={host_token}"
-                participant_url = f"{meeting_url}?t={participant_token}"
+waiting_list = {}
 
-                waiting_list[room_name] = []
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "API is running!"}), 200
 
-                print(f"Host URL: {host_url}")  # Print the host URL
-                print(f"Participant URL: {participant_url}")  # Print the participant URL
+@app.route("/api/create-meeting", methods=["POST"])
 
-                return jsonify({
-                    "host_url": host_url,
-                    "participant_url": participant_url
-                }), 201
-            else:
-                return jsonify({"error": "Failed to generate meeting tokens"}), 500
-        else:
-            return jsonify({"error": "Failed to create meeting", "details": data}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-def generate_token(room_name, is_owner=False):
-    try:
-        response = requests.post(token_api_url, headers=headers, json={
-            "properties": {
-                "room_name": room_name,
-                "is_owner": is_owner,
-                "exp": int(time.time()) + 3600
-            }
-        })
-        token_data = response.json()
-        return token_data.get("token")
-    except Exception as e:
-        return None
 
 # ✅ API for Participants to Request to Join (Sent to Host)
 @app.route("/api/request-join", methods=["POST"])
