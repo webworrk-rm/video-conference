@@ -75,25 +75,12 @@ def generate_token(room_name, is_owner=False):
     try:
         print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}")
         
+        # Only include valid token properties
         token_properties = {
             "room_name": room_name,
             "is_owner": is_owner,
             "exp": int(time.time()) + 3600  # Token expires in 1 hour
         }
-
-        # Add specific permissions based on role
-        if is_owner:
-            token_properties.update({
-                "enable_knocking": True,  # Allow host to see knock requests
-                "start_video_off": False,  # Host can start with video
-                "start_audio_off": False,  # Host can start with audio
-            })
-        else:
-            token_properties.update({
-                "enable_knocking": True,  # Participants must knock
-                "start_video_off": True,  # Participants start with video off
-                "start_audio_off": True,  # Participants start with audio off
-            })
 
         response = requests.post(token_api_url, headers=headers, json={
             "properties": token_properties
