@@ -36,7 +36,7 @@ def create_meeting():
         response = requests.post(dailyco_base_url, headers=headers, json={
             "privacy": "private",
             "properties": {
-                "enable_knocking": True,  # Participants require host approval
+                "enable_knocking": True,  # ✅ Forces waiting room
                 "exp": future_timestamp,
                 "start_audio_off": True,
                 "start_video_off": True,
@@ -50,9 +50,9 @@ def create_meeting():
             meeting_url = data["url"]
             room_name = data["name"]
 
-            # ✅ Generate secure meeting tokens for host and participants
-            host_token = generate_token(room_name, is_owner=True)
-            participant_token = generate_token(room_name, is_owner=False)
+            # ✅ Generate host and participant tokens with proper permissions
+            host_token = generate_token(room_name, is_owner=True, knocking=False)
+            participant_token = generate_token(room_name, is_owner=False, knocking=True)  # ✅ Enforce knocking
 
             if host_token and participant_token:
                 host_url = f"{meeting_url}?t={host_token}"
@@ -73,15 +73,20 @@ def create_meeting():
         return jsonify({"error": str(e)}), 500
 
 # ✅ Function to generate a **secure meeting token**
-def generate_token(room_name, is_owner=False):
+def generate_token(room_name, is_owner=False, knocking=True):
     try:
+        print(f"🔍 Generating token for room: {room_name}, is_owner: {is_owner}, knocking: {knocking}")
+
         response = requests.post(token_api_url, headers=headers, json={
             "properties": {
                 "room_name": room_name,
-                "is_owner": is_owner
+                "is_owner": is_owner,
+                "exp": int(time.time()) + 3600,  # ✅ Token expires in 1 hour
+                "knocking": knocking  # ✅ Enforce waiting room for participants
             }
         })
         token_data = response.json()
+        print("✅ Token API Response:", token_data)
         return token_data.get("token")
     except Exception as e:
         print(f"❌ Token Generation Failed: {e}")
