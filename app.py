@@ -7,7 +7,7 @@ import time
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# ✅ Daily.co API Configuration
+# Daily.co API Configuration
 dailyco_api_key = os.getenv("DAILY_CO_API_KEY", "YOUR_DAILY_CO_API_KEY")
 dailyco_base_url = "https://api.daily.co/v1/rooms"
 token_api_url = "https://api.daily.co/v1/meeting-tokens"
@@ -133,12 +133,29 @@ def admit_participant():
         if room_name not in waiting_list:
             return jsonify({"error": "Room not found"}), 404
 
+        # Remove participant from waiting list
         waiting_list[room_name] = [p for p in waiting_list[room_name] if p["user_name"] != user_name]
+
+        # ✅ Approve participant in Daily.co
+        approve_participant(room_name, user_name)
 
         print(f"✅ {user_name} admitted to {room_name}")
         return jsonify({"message": "User admitted", "user_name": user_name}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ✅ Function to Approve Participant in Daily.co
+def approve_participant(room_name, user_name):
+    try:
+        # Daily.co API endpoint to approve a participant
+        approve_url = f"https://api.daily.co/v1/rooms/{room_name}/participants/{user_name}/approve"
+        response = requests.post(approve_url, headers=headers)
+        if response.status_code == 200:
+            print(f"✅ Approved {user_name} in Daily.co")
+        else:
+            print(f"❌ Failed to approve {user_name}: {response.json()}")
+    except Exception as e:
+        print(f"❌ Approval Error: {e}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
