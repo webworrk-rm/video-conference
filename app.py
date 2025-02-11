@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "celadon-haupia-bc0bcf.netlify.app"}})
 
 # MongoDB Connection
-MONGO_URI = os.getenv("MONGO_URI", "your_mongodb_connection_url")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://webworrkteam:<db_password>@cluster0.yr247.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 client = MongoClient(MONGO_URI)
 db = client["video_conference"]
 meetings_collection = db["meetings"]
