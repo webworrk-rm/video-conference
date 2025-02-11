@@ -8,10 +8,10 @@ import os
 app = Flask(__name__)
 
 # Allow CORS for specific frontend (replace with your Netlify URL)
-CORS(app, resources={r"/*": {"origins": "celadon-haupia-bc0bcf.netlify.app"}})
+CORS(app, resources={r"/*": {"origins": ["https://celadon-haupia-bc0bcf.netlify.app"]}}, allow_headers=["Content-Type", "Authorization"], supports_credentials=True)
 
 # MongoDB Connection
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://webworrkteam:<db_password>@cluster0.yr247.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = os.getenv("MONGO_URI")  # Remove the hardcoded URL
 client = MongoClient(MONGO_URI)
 db = client["video_conference"]
 meetings_collection = db["meetings"]
