@@ -1,0 +1,6 @@
+services:
+  - name: video-conference-backend
+    type: web
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app/routes.py"
