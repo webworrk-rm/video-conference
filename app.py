@@ -6,7 +6,9 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-CORS(app)
+
+# Allow CORS for specific frontend (replace with your Netlify URL)
+CORS(app, resources={r"/*": {"origins": "celadon-haupia-bc0bcf.netlify.app"}})
 
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI", "your_mongodb_connection_url")
